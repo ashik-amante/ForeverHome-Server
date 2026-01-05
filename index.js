@@ -3,7 +3,7 @@ const cors = require('cors');
 const app = express();
 require('dotenv').config();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 app.use(cors());
 app.use(express.json());
@@ -24,6 +24,7 @@ const client = new MongoClient(uri, {
 
 const petsCollection = client.db("ForeverHome").collection("pets");
 const usersCollection = client.db("ForeverHome").collection("users");
+const donationCampaignsCollection = client.db("ForeverHome").collection("donationCampaigns");
 
 async function run() {
     try {
@@ -71,6 +72,38 @@ async function run() {
             } catch (error) {
                 console.error('Error creating pet:', error);
                 res.status(500).send('Error creating pet');
+            }
+        })
+        // add a donation campaign 
+        app.post('/donationCampaigns', async (req, res) => {
+            try {
+                const campaign = req.body;
+                const result = await donationCampaignsCollection.insertOne(campaign);
+                res.send(result);
+            } catch (error) {
+                console.error('Error creating campaign:', error);
+                res.status(500).send('Error creating campaign');
+            }
+        })
+        // get all donation campaigns
+        app.get('/donationCampaigns', async (req, res) => {
+            try {
+                const result = await donationCampaignsCollection.find().toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching campaigns:', error);
+                res.status(500).send('Error fetching campaigns');
+            }
+        })
+        // get a single donation campaign by id
+        app.get('/donationCampaignsDetails/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await donationCampaignsCollection.findOne({ _id: new ObjectId(id) });
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching campaign:', error);
+                res.status(500).send('Error fetching campaign');
             }
         })
 
