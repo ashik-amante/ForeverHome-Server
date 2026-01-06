@@ -74,6 +74,8 @@ async function run() {
                 res.status(500).send('Error creating pet');
             }
         })
+
+        // Donation
         // add a donation campaign 
         app.post('/donationCampaigns', async (req, res) => {
             try {
@@ -104,6 +106,35 @@ async function run() {
             } catch (error) {
                 console.error('Error fetching campaign:', error);
                 res.status(500).send('Error fetching campaign');
+            }
+        })
+        // donation added by user
+        app.get('/donationCampaigns/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const result = await donationCampaignsCollection.find({ email: email }).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching campaigns:', error);
+                res.status(500).send('Error fetching campaigns');
+            }
+        })
+        // update donation pause resume state
+        app.patch('/donationCampaigns/:id', async (req, res) => {
+            try {
+               const id = req.params.id;
+               const status = req.body.status;
+               const query = { _id: new ObjectId(id) };
+               const updatedDoc = {
+                $set: {
+                    isPaused: status
+                }
+               }
+               const result = await donationCampaignsCollection.updateOne(query,updatedDoc)
+               res.send(result);
+            } catch (error) {
+                console.error('Error updating campaign:', error);
+                res.status(500).send('Error updating campaign');
             }
         })
 
