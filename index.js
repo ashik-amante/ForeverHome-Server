@@ -97,6 +97,20 @@ async function run() {
                 res.status(500).send('Error fetching campaigns');
             }
         })
+        // update a donation campaign
+        app.patch('/donationCampaignEdit/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const campaignData = req.body
+                console.log(campaignData);
+                const result = await donationCampaignsCollection.updateOne({ _id: new ObjectId(id) }, { $set: campaignData })
+                res.send(result)
+
+            } catch (error) {
+                console.error('Error updating campaign:', error);
+                res.status(500).send('Error updating campaign');
+            }
+        })
         // get a single donation campaign by id
         app.get('/donationCampaignsDetails/:id', async (req, res) => {
             try {
@@ -122,16 +136,16 @@ async function run() {
         // update donation pause resume state
         app.patch('/donationCampaigns/:id', async (req, res) => {
             try {
-               const id = req.params.id;
-               const status = req.body.status;
-               const query = { _id: new ObjectId(id) };
-               const updatedDoc = {
-                $set: {
-                    isPaused: status
+                const id = req.params.id;
+                const status = req.body.status;
+                const query = { _id: new ObjectId(id) };
+                const updatedDoc = {
+                    $set: {
+                        isPaused: status
+                    }
                 }
-               }
-               const result = await donationCampaignsCollection.updateOne(query,updatedDoc)
-               res.send(result);
+                const result = await donationCampaignsCollection.updateOne(query, updatedDoc)
+                res.send(result);
             } catch (error) {
                 console.error('Error updating campaign:', error);
                 res.status(500).send('Error updating campaign');
