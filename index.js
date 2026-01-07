@@ -25,11 +25,13 @@ const client = new MongoClient(uri, {
 const petsCollection = client.db("ForeverHome").collection("pets");
 const usersCollection = client.db("ForeverHome").collection("users");
 const donationCampaignsCollection = client.db("ForeverHome").collection("donationCampaigns");
+const adoptionRequestsCollection = client.db("ForeverHome").collection("adoptionRequests");
 
 async function run() {
     try {
         await client.connect();
 
+        // users api
         // save a  new user
         app.post('/users', async (req, res) => {
             try {
@@ -41,7 +43,6 @@ async function run() {
                 res.status(500).send('Error creating user');
             }
         })
-
         // get all pets
         app.get('/pets', async (req, res) => {
             try {
@@ -72,6 +73,52 @@ async function run() {
             } catch (error) {
                 console.error('Error creating pet:', error);
                 res.status(500).send('Error creating pet');
+            }
+        })
+        // a single pet detais
+        app.get('/petDetails/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await petsCollection.findOne({ _id: new ObjectId(id) });
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching pet details:', error);
+                res.status(500).send('Error fetching pet details');
+            }
+        })
+        // Adoption request
+        // add a adoption request
+        app.post('/adoptionRequests', async (req, res) => {
+            try {
+                const adoptionRequest = req.body;
+                const result = await adoptionRequestsCollection.insertOne(adoptionRequest);
+                res.send(result);
+            } catch (error) {
+                console.error('Error creating adoption request:', error);
+                res.status(500).send('Error creating adoption request');
+            }
+        })
+        // get adoption requests for a specific pet
+        app.get('/adoptionRequests/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const result = await adoptionRequestsCollection.find({ petOwner : email}).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching adoption requests:', error);
+                res.status(500).send('Error fetching adoption requests');
+            }
+        })
+        // update addoption accepted or rejected
+        app.patch('/adoptionRequests/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const status = req.body.status
+                const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: status } })
+                res.send(result)
+            } catch (error) {
+                console.error('Error updating adoption request:', error);
+                res.status(500).send('Error updating adoption request');
             }
         })
 
