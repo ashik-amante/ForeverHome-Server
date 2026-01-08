@@ -4,10 +4,21 @@ const app = express();
 require('dotenv').config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require("firebase-admin");
 
+// middleware
 app.use(cors());
 app.use(express.json());
 
+
+
+
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
+const serviceAccount = JSON.parse(decodedKey);
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 
 
@@ -31,11 +42,42 @@ async function run() {
     try {
         await client.connect();
 
+        // custome middleware
+        const verifyFBToken = async (req, res, next) => {
+            const authHeader = req.headers.authorization;
+            if (!authHeader) {
+                return res.status(401).send({ message: 'Unauthorized' });
+            }
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = await admin.auth().verifyIdToken(token);
+                req.decoded = decoded;
+                next();
+            } catch (error) {
+                console.error('Error verifying Firebase token:', error);
+                res.status(401).send({ message: 'Unauthorized' });
+            }
+        }
+        //    verify admin middleware
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email }
+            const user = await usersCollection.findOne(query);
+            if (!user || user.role !== 'admin') {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
+
         // users api
         // save a  new user
         app.post('/users', async (req, res) => {
             try {
                 const user = req.body;
+                const isExist = await usersCollection.findOne({ email: user.email })
+                if (isExist) {
+                    return res.send({ message: 'user already exist' })
+                }
                 const result = await usersCollection.insertOne(user);
                 res.send(result);
             } catch (error) {
@@ -43,8 +85,21 @@ async function run() {
                 res.status(500).send('Error creating user');
             }
         })
+        // get user role 
+        app.get('/role/:email',verifyFBToken, async (req, res) => {
+            try {
+                const email = req.params.email;
+                const result = await usersCollection.findOne({ email: email });
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching user role:', error);
+                res.status(500).send('Error fetching user role');
+            }
+        })
         // get all pets
         app.get('/pets', async (req, res) => {
+            const token = req.headers.authorization;
+            console.log(token);
             try {
                 const result = await petsCollection.find().toArray();
                 res.send(result);
@@ -54,7 +109,7 @@ async function run() {
             }
         })
         // get single pet by email
-        app.get('/pets/:email', async (req, res) => {
+        app.get('/pets/:email', verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const result = await petsCollection.find({ email: email }).toArray();
@@ -65,7 +120,7 @@ async function run() {
             }
         })
         // post a pet
-        app.post('/pets', async (req, res) => {
+        app.post('/pets',verifyFBToken, async (req, res) => {
             try {
                 const pet = req.body;
                 const result = await petsCollection.insertOne(pet);
@@ -76,7 +131,7 @@ async function run() {
             }
         })
         // a single pet detais
-        app.get('/petDetails/:id', async (req, res) => {
+        app.get('/petDetails/:id',verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await petsCollection.findOne({ _id: new ObjectId(id) });
@@ -88,7 +143,7 @@ async function run() {
         })
         // Adoption request
         // add a adoption request
-        app.post('/adoptionRequests', async (req, res) => {
+        app.post('/adoptionRequests',verifyFBToken, async (req, res) => {
             try {
                 const adoptionRequest = req.body;
                 const result = await adoptionRequestsCollection.insertOne(adoptionRequest);
@@ -99,10 +154,10 @@ async function run() {
             }
         })
         // get adoption requests for a specific pet
-        app.get('/adoptionRequests/:email', async (req, res) => {
+        app.get('/adoptionRequests/:email',verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
-                const result = await adoptionRequestsCollection.find({ petOwner : email}).toArray();
+                const result = await adoptionRequestsCollection.find({ petOwner: email }).toArray();
                 res.send(result);
             } catch (error) {
                 console.error('Error fetching adoption requests:', error);
@@ -110,7 +165,7 @@ async function run() {
             }
         })
         // update addoption accepted or rejected
-        app.patch('/adoptionRequests/:id', async (req, res) => {
+        app.patch('/adoptionRequests/:id',verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const status = req.body.status
@@ -124,7 +179,7 @@ async function run() {
 
         // Donation
         // add a donation campaign 
-        app.post('/donationCampaigns', async (req, res) => {
+        app.post('/donationCampaigns',verifyFBToken, async (req, res) => {
             try {
                 const campaign = req.body;
                 const result = await donationCampaignsCollection.insertOne(campaign);
@@ -135,7 +190,7 @@ async function run() {
             }
         })
         // get all donation campaigns
-        app.get('/donationCampaigns', async (req, res) => {
+        app.get('/donationCampaigns',verifyFBToken, async (req, res) => {
             try {
                 const result = await donationCampaignsCollection.find().toArray();
                 res.send(result);
@@ -145,7 +200,7 @@ async function run() {
             }
         })
         // update a donation campaign
-        app.patch('/donationCampaignEdit/:id', async (req, res) => {
+        app.patch('/donationCampaignEdit/:id',verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const campaignData = req.body
@@ -159,7 +214,7 @@ async function run() {
             }
         })
         // get a single donation campaign by id
-        app.get('/donationCampaignsDetails/:id', async (req, res) => {
+        app.get('/donationCampaignsDetails/:id',verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await donationCampaignsCollection.findOne({ _id: new ObjectId(id) });
@@ -170,7 +225,7 @@ async function run() {
             }
         })
         // donation added by user
-        app.get('/donationCampaigns/:email', async (req, res) => {
+        app.get('/donationCampaigns/:email',verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const result = await donationCampaignsCollection.find({ email: email }).toArray();
@@ -181,7 +236,7 @@ async function run() {
             }
         })
         // update donation pause resume state
-        app.patch('/donationCampaigns/:id', async (req, res) => {
+        app.patch('/donationCampaigns/:id',verifyFBToken,verifyAdmin, async (req, res) => {
             try {
                 const id = req.params.id;
                 const status = req.body.status;
