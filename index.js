@@ -214,7 +214,7 @@ async function run() {
             }
         })
         // get a single donation campaign by id
-        app.get('/donationCampaignsDetails/:id',verifyFBToken, async (req, res) => {
+        app.get('/donationCampaignsDetails/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await donationCampaignsCollection.findOne({ _id: new ObjectId(id) });
