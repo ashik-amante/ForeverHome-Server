@@ -40,7 +40,7 @@ const adoptionRequestsCollection = client.db("ForeverHome").collection("adoption
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
 
         // custome middleware
         const verifyFBToken = async (req, res, next) => {
@@ -179,7 +179,7 @@ async function run() {
 
         // Donation
         // add a donation campaign 
-        app.post('/donationCampaigns',verifyFBToken, async (req, res) => {
+        app.post('/donationCampaigns', async (req, res) => {
             try {
                 const campaign = req.body;
                 const result = await donationCampaignsCollection.insertOne(campaign);
@@ -254,8 +254,8 @@ async function run() {
             }
         })
 
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
