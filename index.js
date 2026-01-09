@@ -190,7 +190,7 @@ async function run() {
             }
         })
         // get all donation campaigns
-        app.get('/donationCampaigns',verifyFBToken, async (req, res) => {
+        app.get('/donationCampaigns', async (req, res) => {
             try {
                 const result = await donationCampaignsCollection.find().toArray();
                 res.send(result);
