@@ -5,6 +5,7 @@ require('dotenv').config();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const admin = require("firebase-admin");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // middleware
 app.use(cors());
@@ -37,7 +38,7 @@ const petsCollection = client.db("ForeverHome").collection("pets");
 const usersCollection = client.db("ForeverHome").collection("users");
 const donationCampaignsCollection = client.db("ForeverHome").collection("donationCampaigns");
 const adoptionRequestsCollection = client.db("ForeverHome").collection("adoptionRequests");
-
+const paymentsCollection = client.db("ForeverHome").collection("payments");
 async function run() {
     try {
         // await client.connect();
@@ -69,6 +70,8 @@ async function run() {
             next();
         }
 
+
+
         // users api
         // save a  new user
         app.post('/users', async (req, res) => {
@@ -86,7 +89,7 @@ async function run() {
             }
         })
         // get user role 
-        app.get('/role/:email',verifyFBToken, async (req, res) => {
+        app.get('/role/:email', verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const result = await usersCollection.findOne({ email: email });
@@ -120,7 +123,7 @@ async function run() {
             }
         })
         // post a pet
-        app.post('/pets',verifyFBToken, async (req, res) => {
+        app.post('/pets', verifyFBToken, async (req, res) => {
             try {
                 const pet = req.body;
                 const result = await petsCollection.insertOne(pet);
@@ -131,7 +134,7 @@ async function run() {
             }
         })
         // a single pet detais
-        app.get('/petDetails/:id',verifyFBToken, async (req, res) => {
+        app.get('/petDetails/:id', verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await petsCollection.findOne({ _id: new ObjectId(id) });
@@ -143,7 +146,7 @@ async function run() {
         })
         // Adoption request
         // add a adoption request
-        app.post('/adoptionRequests',verifyFBToken, async (req, res) => {
+        app.post('/adoptionRequests', verifyFBToken, async (req, res) => {
             try {
                 const adoptionRequest = req.body;
                 const result = await adoptionRequestsCollection.insertOne(adoptionRequest);
@@ -154,7 +157,7 @@ async function run() {
             }
         })
         // get adoption requests for a specific pet
-        app.get('/adoptionRequests/:email',verifyFBToken, async (req, res) => {
+        app.get('/adoptionRequests/:email', verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const result = await adoptionRequestsCollection.find({ petOwner: email }).toArray();
@@ -165,7 +168,7 @@ async function run() {
             }
         })
         // update addoption accepted or rejected
-        app.patch('/adoptionRequests/:id',verifyFBToken, async (req, res) => {
+        app.patch('/adoptionRequests/:id', verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const status = req.body.status
@@ -200,7 +203,7 @@ async function run() {
             }
         })
         // update a donation campaign
-        app.patch('/donationCampaignEdit/:id',verifyFBToken, async (req, res) => {
+        app.patch('/donationCampaignEdit/:id', verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const campaignData = req.body
@@ -225,7 +228,7 @@ async function run() {
             }
         })
         // donation added by user
-        app.get('/donationCampaigns/:email',verifyFBToken, async (req, res) => {
+        app.get('/donationCampaigns/:email', verifyFBToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const result = await donationCampaignsCollection.find({ email: email }).toArray();
@@ -236,7 +239,7 @@ async function run() {
             }
         })
         // update donation pause resume state
-        app.patch('/donationCampaigns/:id',verifyFBToken,verifyAdmin, async (req, res) => {
+        app.patch('/donationCampaigns/:id', verifyFBToken, verifyAdmin, async (req, res) => {
             try {
                 const id = req.params.id;
                 const status = req.body.status;
@@ -251,6 +254,41 @@ async function run() {
             } catch (error) {
                 console.error('Error updating campaign:', error);
                 res.status(500).send('Error updating campaign');
+            }
+        })
+        // payment api
+        // stripe payment api
+        app.post('/create-payment-intent', async (req, res) => {
+            const { amount } = req.body;
+            const totalAmount = parseInt(amount * 100)
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: totalAmount,
+                currency: 'usd',
+                payment_method_types: ['card'],
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
+        // add a payment data
+        app.post('/payments', async (req, res) => {
+            try {
+                const payment = req.body;
+                const result = await paymentsCollection.insertOne(payment);
+                res.send(result);
+            } catch (error) {
+                console.error('Error creating payment:', error);
+                res.status(500).send('Error creating payment');
+            }
+        })
+        // get all payments
+        app.get('/payments', async (req, res) => {
+            try {
+                const result = await paymentsCollection.find().toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching payments:', error);
+                res.status(500).send('Error fetching payments');
             }
         })
 
