@@ -38,7 +38,7 @@ const petsCollection = client.db("ForeverHome").collection("pets");
 const usersCollection = client.db("ForeverHome").collection("users");
 const donationCampaignsCollection = client.db("ForeverHome").collection("donationCampaigns");
 const adoptionRequestsCollection = client.db("ForeverHome").collection("adoptionRequests");
-const paymentsCollection = client.db("ForeverHome").collection("payments");
+const donationsCollection = client.db("ForeverHome").collection("donations");
 async function run() {
     try {
         // await client.connect();
@@ -271,27 +271,68 @@ async function run() {
             });
         });
         // add a payment data
-        app.post('/payments', async (req, res) => {
+        app.post('/donations', async (req, res) => {
             try {
-                const payment = req.body;
-                const result = await paymentsCollection.insertOne(payment);
-                res.send(result);
-            } catch (error) {
-                console.error('Error creating payment:', error);
-                res.status(500).send('Error creating payment');
-            }
-        })
-        // get all payments
-        app.get('/payments', async (req, res) => {
-            try {
-                const result = await paymentsCollection.find().toArray();
-                res.send(result);
-            } catch (error) {
-                console.error('Error fetching payments:', error);
-                res.status(500).send('Error fetching payments');
-            }
-        })
+                const donation = req.body;
+                const campaignId = donation.campaignId;
+                const donateAmount = Number(donation.amount)
+                const result = await donationsCollection.insertOne(donation);
 
+                // update donation campaign donated amount
+                const query = { _id: new ObjectId(campaignId) };
+                const updatedDoc = {
+                    $inc : {
+                        donatedAmount : donateAmount
+                    }
+                }
+                const updateDonatedAmount = await donationCampaignsCollection.updateOne(query, updatedDoc)
+                res.send({
+                    insertedId: result.insertedId,
+                    campaignDataUpdated : updateDonatedAmount.modifiedCount > 0
+                });
+            } catch (error) {
+                console.error('Error creating donation:', error);
+                res.status(500).send('Error creating donation');
+            }
+        })
+        // get all donations
+        app.get('/donations', async (req, res) => {
+            try {
+                const result = await donationsCollection.find().toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching donation:', error);
+                res.status(500).send('Error fetching donation');
+            }
+        })
+        // get single user's donation
+        app.get('/my-donations/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const result = await donationsCollection.find({ donorEmail : email }).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching donation:', error);
+                res.status(500).send('Error fetching donation');
+            }
+        })
+        // refund donation
+        app.delete('/refund-donation/:id', async (req, res) => {    
+            try {
+                const id = req.params.id
+              const {campaignId,amount} = req.body  
+              console.log(id,campaignId,amount); 
+            //   delete donation 
+            const query = {_id : new ObjectId(id)};
+            const result = await donationsCollection.deleteOne(query)
+            // update donation campaign donated amount
+            const updateAmount = await donationCampaignsCollection.updateOne({_id : new ObjectId(campaignId)}, {$inc : { donatedAmount : -amount}})
+            res.send({deleted : result.deletedCount > 0, updated : updateAmount.modifiedCount > 0})
+            } catch (error) {
+                res.send({deleted : false, updated : false})
+            }
+        })
+       
         // await client.db("admin").command({ ping: 1 });
         // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
