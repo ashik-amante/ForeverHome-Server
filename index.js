@@ -99,6 +99,9 @@ async function run() {
                 res.status(500).send('Error fetching user role');
             }
         })
+
+
+        // pets apis
         // get all pets
         app.get('/pets', async (req, res) => {
             const token = req.headers.authorization;
@@ -134,7 +137,7 @@ async function run() {
             }
         })
         // a single pet detais
-        app.get('/petDetails/:id', verifyFBToken, async (req, res) => {
+        app.get('/petDetails/:id',  async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await petsCollection.findOne({ _id: new ObjectId(id) });
@@ -144,12 +147,43 @@ async function run() {
                 res.status(500).send('Error fetching pet details');
             }
         })
+        // delete a pet
+        app.delete('/pets/:id', verifyFBToken, async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await petsCollection.deleteOne({ _id: new ObjectId(id) });
+                res.send(result);
+            } catch (error) {
+                console.error('Error deleting pet:', error);
+                res.status(500).send('Error deleting pet');
+            }
+        })
+        // update a pet 
+        app.patch('/pets/:id', verifyFBToken, async (req, res) => {
+            try {
+                const id = req.params.id;
+                const pet = req.body;
+                const result = await petsCollection.updateOne({ _id: new ObjectId(id) }, { $set: pet });
+                res.send(result);
+            } catch (error) {
+                console.error('Error updating pet:', error);
+                res.status(500).send('Error updating pet');
+            }
+        })
         // Adoption request
         // add a adoption request
         app.post('/adoptionRequests', verifyFBToken, async (req, res) => {
             try {
                 const adoptionRequest = req.body;
-                const result = await adoptionRequestsCollection.insertOne(adoptionRequest);
+                // check if user has already sent an adoption request
+                const query = {email: adoptionRequest.email, petId: adoptionRequest.petId}
+                
+                const isExist = await adoptionRequestsCollection.findOne(query)
+                if(isExist) return res.status(409).send({message : 'You have already sent an adoption request for this pet'})
+
+                console.log(adoptionRequest.email);
+                const result = await 
+                adoptionRequestsCollection.insertOne(adoptionRequest);
                 res.send(result);
             } catch (error) {
                 console.error('Error creating adoption request:', error);
@@ -171,9 +205,20 @@ async function run() {
         app.patch('/adoptionRequests/:id', verifyFBToken, async (req, res) => {
             try {
                 const id = req.params.id;
+                const petId = req.body.petId
                 const status = req.body.status
+                let isAdopted = true
+                if(status === 'accepted'){
+                    isAdopted = true
+                }else{
+                    isAdopted = false
+                }
                 const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: status } })
-                res.send(result)
+
+                // update in pet listiong
+                const updatePetStatus = await petsCollection.updateOne({ _id: new ObjectId(petId) }, { $set: { adopted: isAdopted } })
+
+                res.send({ result, updatePetStatus });
             } catch (error) {
                 console.error('Error updating adoption request:', error);
                 res.status(500).send('Error updating adoption request');
@@ -332,6 +377,18 @@ async function run() {
                 res.send({deleted : false, updated : false})
             }
         })
+        // find donor detail
+        app.get('/donor-details/:id', async(req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { campaignId: id };
+                const result = await donationsCollection.find(query).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching donor details:', error);
+                res.status(500).send('Error fetching donor details');
+            }
+        })
        
         // await client.db("admin").command({ ping: 1 });
         // console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -344,7 +401,7 @@ run().catch(console.dir);
 
 // sample route
 app.get('/', (req, res) => {
-    res.send('Hello World!')
+    res.send('Welcome to foreverHome Pet Server!')
 })
 
 app.listen(port, () => {
