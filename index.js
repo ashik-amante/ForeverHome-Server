@@ -170,6 +170,20 @@ async function run() {
                 res.status(500).send('Error updating pet');
             }
         })
+        // udate pet status by admin
+        app.patch('/pets/status/:id',verifyFBToken, verifyAdmin, async (req, res) => {
+            try {
+                const id = req.params.id;
+                const status= req.body.status;
+                const result = await petsCollection.updateOne({ _id: new ObjectId(id) }, { $set: {
+                    adopted : status
+                } });
+                res.send(result);
+            } catch (error) {
+                console.error('Error updating pet:', error);
+                res.status(500).send('Error updating pet');
+            }
+        })
         // Adoption request
         // add a adoption request
         app.post('/adoptionRequests', verifyFBToken, async (req, res) => {
@@ -299,6 +313,17 @@ async function run() {
             } catch (error) {
                 console.error('Error updating campaign:', error);
                 res.status(500).send('Error updating campaign');
+            }
+        })
+        // delete a donation campaign
+        app.delete('/donationCampaigns/:id', verifyFBToken, verifyAdmin, async (req, res) => {
+            try {
+                const id = req.params.id;
+                const result = await donationCampaignsCollection.deleteOne({ _id: new ObjectId(id) });
+                res.send(result);
+            } catch (error) {
+                console.error('Error deleting campaign:', error);
+                res.status(500).send('Error deleting campaign');
             }
         })
         // payment api
