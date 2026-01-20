@@ -222,6 +222,7 @@ async function run() {
                 const petId = req.body.petId
                 const status = req.body.status
                 let isAdopted = true
+
                 if(status === 'accepted'){
                     isAdopted = true
                 }else{
@@ -230,7 +231,9 @@ async function run() {
                 const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: status } })
 
                 // update in pet listiong
-                const updatePetStatus = await petsCollection.updateOne({ _id: new ObjectId(petId) }, { $set: { adopted: isAdopted } })
+                const updateField = {adopted : isAdopted}
+                if(isAdopted === true) updateField.adoptTime = new Date().toISOString()
+                const updatePetStatus = await petsCollection.updateOne({ _id: new ObjectId(petId) }, { $set: updateField })
 
                 res.send({ result, updatePetStatus });
             } catch (error) {
