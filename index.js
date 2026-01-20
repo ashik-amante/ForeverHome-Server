@@ -137,7 +137,7 @@ async function run() {
             }
         })
         // a single pet detais
-        app.get('/petDetails/:id',  async (req, res) => {
+        app.get('/petDetails/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const result = await petsCollection.findOne({ _id: new ObjectId(id) });
@@ -171,13 +171,15 @@ async function run() {
             }
         })
         // udate pet status by admin
-        app.patch('/pets/status/:id',verifyFBToken, verifyAdmin, async (req, res) => {
+        app.patch('/pets/status/:id', verifyFBToken, verifyAdmin, async (req, res) => {
             try {
                 const id = req.params.id;
-                const status= req.body.status;
-                const result = await petsCollection.updateOne({ _id: new ObjectId(id) }, { $set: {
-                    adopted : status
-                } });
+                const status = req.body.status;
+                const result = await petsCollection.updateOne({ _id: new ObjectId(id) }, {
+                    $set: {
+                        adopted: status
+                    }
+                });
                 res.send(result);
             } catch (error) {
                 console.error('Error updating pet:', error);
@@ -190,14 +192,14 @@ async function run() {
             try {
                 const adoptionRequest = req.body;
                 // check if user has already sent an adoption request
-                const query = {email: adoptionRequest.email, petId: adoptionRequest.petId}
-                
+                const query = { email: adoptionRequest.email, petId: adoptionRequest.petId }
+
                 const isExist = await adoptionRequestsCollection.findOne(query)
-                if(isExist) return res.status(409).send({message : 'You have already sent an adoption request for this pet'})
+                if (isExist) return res.status(409).send({ message: 'You have already sent an adoption request for this pet' })
 
                 console.log(adoptionRequest.email);
-                const result = await 
-                adoptionRequestsCollection.insertOne(adoptionRequest);
+                const result = await
+                    adoptionRequestsCollection.insertOne(adoptionRequest);
                 res.send(result);
             } catch (error) {
                 console.error('Error creating adoption request:', error);
@@ -223,16 +225,16 @@ async function run() {
                 const status = req.body.status
                 let isAdopted = true
 
-                if(status === 'accepted'){
+                if (status === 'accepted') {
                     isAdopted = true
-                }else{
+                } else {
                     isAdopted = false
                 }
                 const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: status } })
 
                 // update in pet listiong
-                const updateField = {adopted : isAdopted}
-                if(isAdopted === true) updateField.adoptTime = new Date().toISOString()
+                const updateField = { adopted: isAdopted }
+                if (isAdopted === true) updateField.adoptTime = new Date()
                 const updatePetStatus = await petsCollection.updateOne({ _id: new ObjectId(petId) }, { $set: updateField })
 
                 res.send({ result, updatePetStatus });
@@ -349,19 +351,22 @@ async function run() {
                 const donation = req.body;
                 const campaignId = donation.campaignId;
                 const donateAmount = Number(donation.amount)
-                const result = await donationsCollection.insertOne(donation);
+                const result = await donationsCollection.insertOne({
+                    ...donation,
+                    paidAt: new Date(donation.paidAt)
+                });
 
                 // update donation campaign donated amount
                 const query = { _id: new ObjectId(campaignId) };
                 const updatedDoc = {
-                    $inc : {
-                        donatedAmount : donateAmount
+                    $inc: {
+                        donatedAmount: donateAmount
                     }
                 }
                 const updateDonatedAmount = await donationCampaignsCollection.updateOne(query, updatedDoc)
                 res.send({
                     insertedId: result.insertedId,
-                    campaignDataUpdated : updateDonatedAmount.modifiedCount > 0
+                    campaignDataUpdated: updateDonatedAmount.modifiedCount > 0
                 });
             } catch (error) {
                 console.error('Error creating donation:', error);
@@ -382,7 +387,7 @@ async function run() {
         app.get('/my-donations/:email', async (req, res) => {
             try {
                 const email = req.params.email;
-                const result = await donationsCollection.find({ donorEmail : email }).toArray();
+                const result = await donationsCollection.find({ donorEmail: email }).toArray();
                 res.send(result);
             } catch (error) {
                 console.error('Error fetching donation:', error);
@@ -390,23 +395,23 @@ async function run() {
             }
         })
         // refund donation
-        app.delete('/refund-donation/:id', async (req, res) => {    
+        app.delete('/refund-donation/:id', async (req, res) => {
             try {
                 const id = req.params.id
-              const {campaignId,amount} = req.body  
-              console.log(id,campaignId,amount); 
-            //   delete donation 
-            const query = {_id : new ObjectId(id)};
-            const result = await donationsCollection.deleteOne(query)
-            // update donation campaign donated amount
-            const updateAmount = await donationCampaignsCollection.updateOne({_id : new ObjectId(campaignId)}, {$inc : { donatedAmount : -amount}})
-            res.send({deleted : result.deletedCount > 0, updated : updateAmount.modifiedCount > 0})
+                const { campaignId, amount } = req.body
+                console.log(id, campaignId, amount);
+                //   delete donation 
+                const query = { _id: new ObjectId(id) };
+                const result = await donationsCollection.deleteOne(query)
+                // update donation campaign donated amount
+                const updateAmount = await donationCampaignsCollection.updateOne({ _id: new ObjectId(campaignId) }, { $inc: { donatedAmount: -amount } })
+                res.send({ deleted: result.deletedCount > 0, updated: updateAmount.modifiedCount > 0 })
             } catch (error) {
-                res.send({deleted : false, updated : false})
+                res.send({ deleted: false, updated: false })
             }
         })
         // find donor detail
-        app.get('/donor-details/:id', async(req, res) => {
+        app.get('/donor-details/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const query = { campaignId: id };
@@ -422,33 +427,123 @@ async function run() {
             try {
                 const totalUsers = await usersCollection.estimatedDocumentCount();
                 const totalPets = await petsCollection.estimatedDocumentCount();
-                const adopted = await petsCollection.countDocuments({adopted : true })
-                const notAdopted = await petsCollection.countDocuments({adopted : false });
+                const adopted = await petsCollection.countDocuments({ adopted: true })
+                const notAdopted = await petsCollection.countDocuments({ adopted: false });
                 const totalDonation = await donationsCollection.aggregate([
                     {
-                        $group : {
+                        $group: {
                             _id: null,
                             totalAmount: { $sum: "$amount" },
                             totalDonationCount: { $sum: 1 }
 
                         }
-                    }, 
+                    },
                     {
-                         $project : {
-                            _id : 0,
-                            totalDonationCount : 1
-,                            totalDonationAmmount : "$totalAmount"
+                        $project: {
+                            _id: 0,
+                            totalDonationCount: 1
+                            , totalDonationAmmount: "$totalAmount"
                         }
                     }
                 ]).toArray()
-                const result = {totalUsers,totalPets,adopted,notAdopted, totalDonation};
+                const result = { totalUsers, totalPets, adopted, notAdopted, totalDonation };
                 res.send(result);
             } catch (error) {
                 console.error('Error fetching stats:', error);
                 res.status(500).send('Error fetching stats');
             }
         })
-       
+        // chart data 
+        app.get('/admin/chartData', async (req, res) => {
+            try {
+                const adoptionsStats = await petsCollection.aggregate([
+                    {
+                        $match: {
+                            adopted: true,
+                            adoptTime: { $exists: true }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: {
+                                month: { $month: { $toDate: "$adoptTime" } },
+                                year: { $year: { $toDate: "$adoptTime" } }
+                            },
+                            totalAdoptions: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            month: "$_id.month",
+                            year: "$_id.year",
+                            totalAdoptions: 1
+                        }
+                    },
+                    {
+                        $sort: {
+                            year: 1,
+                            month: 1
+                        }
+                    }
+                ]).toArray()
+                //    donation chart data
+                const donationStats = await donationsCollection.aggregate([
+                    { $match: { paidAt: { $exists: true } } },
+                    {
+                        $group: {
+                            _id: {
+                                month: { $month: "$paidAt" },
+                                year: { $year: "$paidAt" }
+                            },
+                            totalDonation: { $sum: "$amount" }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            month: "$_id.month",
+                            year: "$_id.year",
+                            totalDonation: 1
+                        }
+                    },
+                    { $sort: { year: 1, month: 1 } }
+                ]).toArray()
+
+                // months
+                const months = [
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                ];
+
+                const chartData = months.map((month, index) => {
+                    const adoption = adoptionsStats.find(a=> a.month === index + 1)
+                    const donation = donationStats.find(a=> a.month === index + 1)
+
+                    return {
+                        name : month,
+                        adoption: adoption ? adoption.totalAdoptions : 0,
+                        donation: donation ? donation.totalDonation : 0
+                    }
+                    
+                })
+
+                res.send(chartData);
+            } catch (error) {
+                console.error('Error fetching chart data:', error);
+                res.status(500).send('Error fetching chart data');
+            }
+        })
         // await client.db("admin").command({ ping: 1 });
         // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
