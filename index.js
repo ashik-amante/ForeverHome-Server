@@ -414,6 +414,37 @@ async function run() {
                 res.status(500).send('Error fetching donor details');
             }
         })
+        // aggregation for stat
+        app.get('/admin/stats', async (req, res) => {
+            try {
+                const totalUsers = await usersCollection.estimatedDocumentCount();
+                const totalPets = await petsCollection.estimatedDocumentCount();
+                const adopted = await petsCollection.countDocuments({adopted : true })
+                const notAdopted = await petsCollection.countDocuments({adopted : false });
+                const totalDonation = await donationsCollection.aggregate([
+                    {
+                        $group : {
+                            _id: null,
+                            totalAmount: { $sum: "$amount" },
+                            totalDonationCount: { $sum: 1 }
+
+                        }
+                    }, 
+                    {
+                         $project : {
+                            _id : 0,
+                            totalDonationCount : 1
+,                            totalDonationAmmount : "$totalAmount"
+                        }
+                    }
+                ]).toArray()
+                const result = {totalUsers,totalPets,adopted,notAdopted, totalDonation};
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                res.status(500).send('Error fetching stats');
+            }
+        })
        
         // await client.db("admin").command({ ping: 1 });
         // console.log("Pinged your deployment. You successfully connected to MongoDB!");
