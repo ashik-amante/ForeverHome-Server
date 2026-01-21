@@ -223,15 +223,21 @@ async function run() {
                 const id = req.params.id;
                 const petId = req.body.petId
                 const status = req.body.status
-                let isAdopted = true
+                console.log(status, 'from adoption req');
+                const updatedDoc = {
+                    $set: {
+                        status: status,
+                        statusUpdatedAt: new Date()
+                    }
+                }
+                const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, updatedDoc);
 
+                let isAdopted = true
                 if (status === 'accepted') {
                     isAdopted = true
                 } else {
                     isAdopted = false
                 }
-                const result = await adoptionRequestsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { status: status } })
-
                 // update in pet listiong
                 const updateField = { adopted: isAdopted }
                 if (isAdopted === true) updateField.adoptTime = new Date()
@@ -241,6 +247,18 @@ async function run() {
             } catch (error) {
                 console.error('Error updating adoption request:', error);
                 res.status(500).send('Error updating adoption request');
+            }
+        })
+        // show adopted data for a user 
+        app.get('/myAdoptedPets/:email', verifyFBToken, async (req, res) => {
+            try {
+                const email = req.params.email;
+                const query = {email: email }
+                const result = await adoptionRequestsCollection.find(query ).toArray();
+                res.send(result);
+            } catch (error) {
+                console.error('Error fetching adoption requests:', error);
+                res.status(500).send('Error fetching adoption requests');
             }
         })
 
@@ -532,8 +550,8 @@ async function run() {
 
                     return {
                         name : month,
-                        adoption: adoption ? adoption.totalAdoptions : 0,
-                        donation: donation ? donation.totalDonation : 0
+                        adoptions: adoption ? adoption.totalAdoptions : 0,
+                        donations: donation ? donation.totalDonation : 0
                     }
                     
                 })
@@ -542,6 +560,49 @@ async function run() {
             } catch (error) {
                 console.error('Error fetching chart data:', error);
                 res.status(500).send('Error fetching chart data');
+            }
+        })
+        
+        // user stats api
+        app.get('/user-stats/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+               const petAdopted = await adoptionRequestsCollection.countDocuments({email: email,status: "accepted"});
+               console.log(petAdopted);
+
+               const donationCount = await donationsCollection.countDocuments({donorEmail: email});
+
+               const addedPets = await petsCollection.countDocuments({email: email});
+
+               const campaignCount = await donationCampaignsCollection.countDocuments({email: email});
+
+               const totalDonations = await donationsCollection.aggregate([
+                {
+                    $match: {
+                        donorEmail: email
+                    }
+                },
+                {
+                    $group: {
+                        _id : "$donorEmail",
+                        totalDonations: {$sum : "$amount"},
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        totalDonations: 1,
+                        count: 1
+                    }
+                },
+                { $sort: { paidAt: -1}}
+               ]).toArray()
+
+               res.send({petAdopted,donationCount,addedPets,totalDonations,campaignCount});
+            } catch (error) {
+                console.error('Error fetching user stats:', error);
+                res.status(500).send('Error fetching user stats');
             }
         })
         // await client.db("admin").command({ ping: 1 });
